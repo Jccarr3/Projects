@@ -46,6 +46,7 @@ class cache{
             assoc = associability;                  //number of blocks per set
             blocksize = block;                      //block size in bytes
             sets = (size/(blocksize*assoc));        //number of sets in cache
+            next_level = next;                      //pointer to next level of cache
 
             //adjust set_list according to number of sets
             set_list.resize(sets);
@@ -103,7 +104,9 @@ class cache{
             //check for cache hit
 
             //if cache miss, check for stream buffer hit
-            if(!cache_hit){
+            printf("error check\n");
+            if(!cache_hit && stream_buffers.size() > 0){   //if there are stream buffers
+                printf("error caused by stream check");
                 for(int i = 0; i < stream_buffers.size(); i++){     //loop through all stream buffers
                     if(stream_buffers[i].valid){                    //if stream buffer is valid
                         for(int j = 0; j < stream_buffers[i].tags.size(); j++){ //loop through all tags in stream buffer
@@ -128,25 +131,33 @@ class cache{
 
             //handle miss 
             if(!cache_hit && !stream_hit){
+                printf("error inside miss case\n");
                 if(next_level != nullptr){   //if there is a next level of cache
+                    //printf("why are you here\n");
                     next_level->request('r', addy); //send read request to next level of cache
                 }
                 cache_store(set_list[index], tag, addy);          //store new block in cache
-                for(int j = 0; j < stream_buffers.size(); j++){             //find stream to store new tags
-                    if(stream_buffers[j].recency == stream_buffers.size()){                          //if stream buffer is most recently used
-                        stream_store(stream_buffers, tag, j);                       //replace most recently used stream buffer
-                        break;                                            
-                    }
-                    if(!stream_buffers[j].valid){                               //if stream buffer is invalid
-                        stream_store(stream_buffers, tag, j);                    //store new tags in stream buffer
-                        break;                                                  //exit loop
+                //printf("cache store completed\n");
+                if(stream_buffers.size() > 0){
+                    printf("inside prefetch\n");
+                    for(int j = 0; j < stream_buffers.size(); j++){             //find stream to store new tags
+                        if(stream_buffers[j].recency == stream_buffers.size()){                          //if stream buffer is most recently used
+                            stream_store(stream_buffers, tag, j);                       //replace most recently used stream buffer
+                            break;                                            
+                        }
+                        if(!stream_buffers[j].valid){                               //if stream buffer is invalid
+                            stream_store(stream_buffers, tag, j);                    //store new tags in stream buffer
+                            break;                                                  //exit loop
+                        }
                     }
                 }                                 
                 if(rw == 'w'){                       //if write request
                     writes++;                        //increment write counter
                     write_misses++;                  //increment write miss counter
-                    set_list[index][LRU_index].dirty = true; //set dirty bit                                   
-                } else {
+                    set_list[index][LRU_index].dirty = true; //set dirty bit       
+                    printf("completed write miss\n");
+                } 
+                else {
                     reads++;                         //increment read counter
                     read_misses++;                   //increment read miss counter
                 }
@@ -190,12 +201,14 @@ class cache{
 
         //function to store new block in cache
         void cache_store(vector<block> &v, uint64_t tag, uint64_t address){          //set(not set_list) is passed as argument
+            printf("inside cache store\n");
             for(int i = 0; i < v.size(); i++){          //loop through blocks to find invalid block
                 if(!v[i].valid){                //if block is invalid
                     v[i].tag = tag;             //store new tag in block
                     v[i].valid = true;          //set block to valid
                     v[i].dirty = false;         //set dirty bit to false
                     block_adjust(v, i);         //adjust recency of blocks in set
+                    printf("empty block filled\n");
                     return;                     //exit function
                 }
             }
@@ -224,13 +237,15 @@ class cache{
         void print_stats(){
             printf("=======Cache Contents=======\n");
             for(int i = 0; i < sets; i++){
+                printf("Set     %d:", i);
                 for(int j = 0; j < assoc; j++){
                     if(set_list[i][j].valid){
-                        printf("Set %d, Block %d: Tag: %lx, Recency: %d, Dirty: %d\n", i, j, set_list[i][j].tag, set_list[i][j].recency, set_list[i][j].dirty);
+                        printf("   %lx %d", set_list[i][j].tag, set_list[i][j].dirty);
                     } else {
-                        printf("Set %d, Block %d: Invalid\n", i, j);
+                        printf("   Invalid");
                     }
                 }
+                printf("\n");
             }
 
             printf("=======measurements=======\n");
@@ -248,6 +263,4 @@ class cache{
             return;
         }
 };
-
-
 

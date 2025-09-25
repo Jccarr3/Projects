@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include "sim.h"
+#include "cache.h"
 
 
    // Example:
@@ -44,6 +45,23 @@ int main (int argc, char *argv[]) {
    params.PREF_M    = (uint32_t) atoi(argv[7]);
    trace_file       = argv[8];
 
+   //instantiate caches here
+   cache* L2 = nullptr;
+   cache* L1 = nullptr;
+   if(params.L2_SIZE < 1){
+      L1 = new cache(params.L1_SIZE, params.L1_ASSOC, params.BLOCKSIZE, nullptr, params.PREF_N, params.PREF_M);
+      printf("no L2 cache\n");
+   } 
+   else {
+      L2 = new cache(params.L2_SIZE, params.L2_ASSOC, params.BLOCKSIZE, nullptr, params.PREF_N, params.PREF_M);
+      L1 = new cache(params.L1_SIZE, params.L1_ASSOC, params.BLOCKSIZE, L2);
+      printf("L2 cache instantiated\n");
+   }
+
+
+      
+   //instantiate caches here
+
    // Open the trace file for reading.
    fp = fopen(trace_file, "r");
    if (fp == (FILE *) NULL) {
@@ -66,19 +84,22 @@ int main (int argc, char *argv[]) {
 
    // Read requests from the trace file and echo them back.
    while (fscanf(fp, "%c %x\n", &rw, &addr) == 2) {	// Stay in the loop if fscanf() successfully parsed two tokens as specified.
-      if (rw == 'r')
-         printf("r %x\n", addr);
-      else if (rw == 'w')
-         printf("w %x\n", addr);
-      else {
-         printf("Error: Unknown request type %c.\n", rw);
-	 exit(EXIT_FAILURE);
-      }
+   //    if (rw == 'r')
+   //       printf("r %x\n", addr);
+   //    else if (rw == 'w')
+   //       printf("w %x\n", addr);
+   //    else {
+   //       printf("Error: Unknown request type %c.\n", rw);
+	//  exit(EXIT_FAILURE);
+   //    }
 
       ///////////////////////////////////////////////////////
       // Issue the request to the L1 cache instance here.
+      L1->request(rw, addr);
       ///////////////////////////////////////////////////////
     }
+    L1->print_stats();
+    L2->print_stats();
 
     return(0);
 }
