@@ -162,6 +162,7 @@ class cache{
             }
         }
         v[index].recency = 0;               //set recency of accessed block to 0
+        return;
         }
         //function used to adjust recency of blocks in a vector
 
@@ -173,6 +174,7 @@ class cache{
             }
         }
         v[index].recency = 0;               //set recency of accessed block to 0
+        return;
         }
         //function used to adjust recency of stream buffers in a vector
 
@@ -216,6 +218,7 @@ class cache{
             v[LRU_index].valid = true;          //set block to valid
             v[LRU_index].dirty = false;         //set dirty bit to false
             block_adjust(v, LRU_index);         //adjust recency of blocks in set
+            return;                             //exit function
         }
 
         void print_stats(){
@@ -241,6 +244,8 @@ class cache{
             }
             float miss_rate = (float)(read_misses + write_misses) / (float)(reads + writes);
             printf("Miss Rate: %.4f\n", miss_rate);
+
+            return;
         }
 };
 
