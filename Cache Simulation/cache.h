@@ -41,9 +41,9 @@ class cache{
 
 
         //constructor for cache class, should have following configurable parameters(size, associability, blocksize))
-        cache(int bytes = 0, int associability = 0 , int block = 0, cache *next = nullptr, int stream_count = 0, int stream_size = 0){
+        cache(int bytes = 0, int associativity = 0 , int block = 0, cache *next = nullptr, int stream_count = 0, int stream_size = 0){
             size = bytes;                           //total size of cache
-            assoc = associability;                  //number of blocks per set
+            assoc = associativity;                  //number of blocks per set
             blocksize = block;                      //block size in bytes
             sets = (size/(blocksize*assoc));        //number of sets in cache
             next_level = next;                      //pointer to next level of cache
@@ -53,7 +53,7 @@ class cache{
             for(int i = 0; i < sets; i++){
                 set_list[i].resize(assoc);          //resize each set to number of blocks per set
                 for(int j = 0; j < assoc; j++){
-                    set_list[i][j].recency = set_list[i].size(); //initialize recency of each block max value(done to make LRU replacement easier)
+                    set_list[i][j].recency = assoc-1; //initialize recency of each block max value(done to make LRU replacement easier)
                 }
             }
 
@@ -81,7 +81,7 @@ class cache{
 
             //check for cache hit/
             for(int i = 0; i < assoc; i++){             //loop through all blocks in the set
-                if(set_list[index][i].tag == tag){              //if block tags match
+                if(set_list[index][i].tag == tag && set_list[index][i].valid){              //if block tags match
                     cache_hit = true;    
                     //check for stream hit                                       //cache hit
                     for(int j = 0; j < stream_buffers.size(); j++){             //check streams for hit
@@ -117,7 +117,7 @@ class cache{
                                 stream_hit = true;                  //stream buffer hit
                                 //code here to move stream buffer block to cache
                                 stream_store(stream_buffers, tag, i);      //store new tags in stream buffer
-                                cache_store(set_list[index], tag, addy);          //store new block in cache
+                                cache_store(set_list[index], tag, rw, index);          //store new block in cache
                                 if(rw == 'w'){                       //if write request
                                     writes++;                        //increment write counter
                                     set_list[index][LRU_index].dirty = true; //set dirty bit                                   
@@ -136,12 +136,11 @@ class cache{
             if(!cache_hit && !stream_hit){
                 //printf("error inside miss case\n");
                 if(next_level != nullptr){   //if there is a next level of cache
-                    //printf("why are you here\n");
-                    next_level->request('r', addy); //send read request to next level of cache
+                    next_level->request('r', (tag << (BO_bits + index_bits)) | (index << BO_bits)); //send read request to next level of cache
                 }
-                cache_store(set_list[index], tag, addy);          //store new block in cache
+                cache_store(set_list[index], tag, rw, index);          //store new block in cache
                 //printf("cache store completed\n");
-                if(stream_buffers.size() > 0){
+                if(stream_buffers.size() > 0){          //prefetch logic
                     printf("inside prefetch\n");
                     for(int j = 0; j < stream_buffers.size(); j++){             //find stream to store new tags
                         if(stream_buffers[j].recency == stream_buffers.size()){                          //if stream buffer is most recently used
@@ -156,8 +155,8 @@ class cache{
                 }                                 
                 if(rw == 'w'){                       //if write request
                     writes++;                        //increment write counter
-                    write_misses++;                  //increment write miss counter
-                    set_list[index][LRU_index].dirty = true; //set dirty bit       
+                    write_misses++;                  //increment write miss counter  
+                    //set_list[index][LRU_index].dirty = true; //set dirty bit
                     //printf("completed write miss\n");
                 } 
                 else {
@@ -171,12 +170,13 @@ class cache{
         //function used to adjust recency of blocks in a vector
         void block_adjust(vector<block> &v, int index){
         for(int i = 0; i < v.size(); i++){
-            if(v[i].valid && v[i].recency <= v[index].recency){
+            int old_recency = v[index].recency;
+            if(v[i].valid && i != index && v[i].recency < old_recency){
                 //printf("adjusting recency\n");
                 v[i].recency++;                 //increase the recency of all blocks older than the accessed block
             }
             else{
-                printf("not adjusting recency due to invalidity\n");
+                //printf("not adjusting recency due to invalidity\n");
             }
         }
         v[index].recency = 0;               //set recency of accessed block to 0
@@ -207,13 +207,18 @@ class cache{
         //function to store new items in stream 
 
         //function to store new block in cache
-        void cache_store(vector<block> &v, uint64_t tag, uint64_t address){          //set(not set_list) is passed as argument
+        void cache_store(vector<block> &v, uint64_t tag, char rw, uint64_t index){          //set(not set_list) is passed as argument
             //printf("inside cache store\n");
             for(int i = 0; i < v.size(); i++){          //loop through blocks to find invalid block
                 if(v[i].valid == false){                //if block is invalid
                     v[i].tag = tag;             //store new tag in block
                     v[i].valid = true;          //set block to valid
-                    v[i].dirty = false;         //set dirty bit to false
+                    if(rw == 'w'){ //if write request
+                        v[i].dirty = true;       //set dirty bit
+                    } 
+                    else {
+                        v[i].dirty = false;      //set dirty bit to false
+                    }
                     block_adjust(v, i);         //adjust recency of blocks in set
                     test_count++;
                     //printf("empty block filled\n");
@@ -221,23 +226,30 @@ class cache{
                 }
             }
             //if all blocks are valid, replace least recently used block
-            LRU_index = 0;
+            //LRU_index = 0;
             for(int i = 0; i < v.size(); i++){
-                if(v[i].recency == v.size()){   //find index of least recently used block
+                if(v[i].recency == v.size() - 1){   //find index of least recently used block
                     LRU_index = i;
                 }
             }
             //if dirty bit is set, write back to next level of cache
-            if(v[LRU_index].dirty){
+            if(v[LRU_index].dirty == true){
                 //write back to next level of cache
                 write_backs++;
                 if(next_level != nullptr){
-                    next_level->request('w', address); //send write request to next level of cache
+                    int BO_bits = log2(blocksize);                   //number of block offset bits
+                    int i_bits = log2(sets);                     //number of index bits
+                    next_level->request('w', (v[LRU_index].tag << (BO_bits + i_bits)) | (index << BO_bits)); //send write request to next level of cache
                 }
             }
             v[LRU_index].tag = tag;             //store new tag in block
             v[LRU_index].valid = true;          //set block to valid
-            v[LRU_index].dirty = false;         //set dirty bit to false
+            if(rw == 'w'){ //if write request
+                v[LRU_index].dirty = true;       //set dirty bit
+            } 
+            else {
+                v[LRU_index].dirty = false;      //set dirty bit to false
+            }
             block_adjust(v, LRU_index);         //adjust recency of blocks in set
             return;                             //exit function
         }
@@ -248,7 +260,13 @@ class cache{
                 printf("Set     %d:", i);
                 for(int j = 0; j < assoc; j++){
                     if(set_list[i][j].valid){
-                        printf("   %lx %d  %d", set_list[i][j].tag, set_list[i][j].dirty,set_list[i][j].recency);
+                        printf("   %lx ", set_list[i][j].tag);
+                        if(set_list[i][j].dirty){
+                            printf("D");
+                        } else {
+                            printf(" ");
+                        }
+                        //printf("   %d", set_list[i][j].recency);
                     } else {
                         printf("   Invalid");
                     }
@@ -267,11 +285,13 @@ class cache{
             }
             float miss_rate = (float)(read_misses + write_misses) / (float)(reads + writes);
             printf("Miss Rate: %.4f\n", miss_rate);
-            printf(" %d", test_count);
+            //printf(" %d", test_count);
 
             return;
         }
+
 };
+
 
 
 
