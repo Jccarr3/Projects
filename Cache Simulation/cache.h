@@ -28,7 +28,7 @@ class cache{
 
         class stream{
             public:
-                vector<uint32_t> tags;      //vector of tags in stream buffer
+                vector<uint32_t> addys;      //vector of tags in stream buffer
                 //uint64_t recency;           //recency of stream buffer
                 bool valid = false;
         };
@@ -57,7 +57,7 @@ class cache{
             //initialize stream buffer
             stream_buffers.resize(stream_count);            //resize stream buffer to number of stream buffers
             for(auto &s : stream_buffers){                //for each stream buffer
-                s.tags.resize(stream_size);               //resize tags vector to stream size
+                s.addys.resize(stream_size);               //resize tags vector to stream size
                 
             }
         }
@@ -65,7 +65,7 @@ class cache{
 
 
         void request(char rw, uint32_t addy){   //function that handles read/write requests
-            printf("boo");
+            printf("goku");
             //important variables
             bool cache_hit = false;                          //flag to check if hit or miss
             bool stream_hit = false;                   //flag to check if hit in stream buffer
@@ -103,17 +103,17 @@ class cache{
 
             //check for hit in stream buffer 
             for(it_s = stream_buffers.begin(); it_s != stream_buffers.end(); ++it_s){ //for each stream buffer
-                for(stream_tag_index = 0; stream_tag_index < it_s->tags.size(); stream_tag_index++){               //for each tag in stream buffer
-                    if(it_s->tags[stream_tag_index] == tag){                        //if tag matches
-                        stream_hit = true;               //set hit flag to true
-                        break;                          //break out of loop
+                if(it_s->valid){
+                    for(stream_tag_index = 0; stream_tag_index < it_s->addys.size(); stream_tag_index++){               //for each tag in stream buffer
+                        if(it_s->addys[stream_tag_index] == tag){                        //if tag matches
+                            stream_hit = true;               //set hit flag to true
+                            break;                          //break out of loop
+                        }
                     }
                 }
                 if(stream_hit){                         //if hit in stream buffer
                     break;                              //break out of loop
                 }
-                stream_tag_index = 0;                    //set back to zero for use in stream store for non-shifting method
-
             }
             //check for hit in stream buffer done
 
@@ -217,7 +217,9 @@ class cache{
                 update_order(index, it);              //update LRU by moving block to front of list   
         }
 
+        void stream_store(uint32_t addy){}         //need address to be stored, which stream to store it in, which index in stream to update until
 };
+
 
 
 
