@@ -56,16 +56,18 @@ class cache{
 
             //initialize stream buffer
             stream_buffers.resize(stream_count);            //resize stream buffer to number of stream buffers
-            for(int i = 0; i < stream_count; i++){
-                //stream_buffers[i].tags.resize(stream_size); //resize each stream buffer to stream size
+            for(auto &s : stream_buffers){                //for each stream buffer
+                s.tags.resize(stream_size);               //resize tags vector to stream size
+                
             }
         }
         //end of constructor code
 
 
         void request(char rw, uint32_t addy){   //function that handles read/write requests
+            //printf("chec");
             //important variables
-            bool hit = false;                          //flag to check if hit or miss
+            bool cache_hit = false;                          //flag to check if hit or miss
             bool stream_hit = false;                   //flag to check if hit in stream buffer
             //important variables done
 
@@ -77,10 +79,12 @@ class cache{
             tag = addy >> (BO_bits + index_bits);    //get tag by shifting address right by block offset bits and index bits
             //calculate tag and index done
 
+            auto it = set_list[index].begin();    //iterator to beginning of set list
+
             //check for hit in cache
-            for(auto it = set_list[index].begin(); it != set_list[index].end(); ++it){          //for each block in the set
+            for(it = set_list[index].begin(); it != set_list[index].end(); ++it){          //for each block in the set
                 if(it->valid && it->tag == tag){         //if block is valid and tags match
-                    hit = true;                       //set hit flag to true
+                    cache_hit = true;                       //set hit flag to true
                     if(rw == 'r'){                    //if read request
                         reads++;                      //increment read counter
                     }
@@ -90,58 +94,40 @@ class cache{
                     }
                     //update LRU
                     update_order(index, it);                  //update LRU by moving block to front of list
-                    return;                          //break out of loop
                 }
             }
             //check for hit in cache done
 
-            //check for hit in stream buffer if miss in cache
-            // if(!hit && stream_buffers.size() > 0){          //if miss in cache and stream buffers exist
-            //     for(auto &sb : stream_buffers){             //for each stream buffer
-            //         if(sb.valid){                           //if stream buffer is valid
-            //             for(auto tag_it = sb.tags.begin(); tag_it != sb.tags.end(); tag_it++){   //for each tag in stream buffer
-            //                 if(*tag_it == tag){             //if tag matches
-            //                     stream_hit = true;          //set stream hit flag to true
-            //                     prefetches++;               //increment prefetch counter
-            //                     //move block from stream buffer to cache
-            //                     block new_block;            //create new block
-            //                     new_block.tag = tag;        //set tag of new block
-            //                     new_block.valid = true;     //set valid bit of new block
-            //                     if(rw == 'w'){              //if write request
-            //                         writes++;                 //increment write counter
-            //                         new_block.dirty = true;   //set dirty bit of new block
-            //                     }
-            //                     else{                       //if read request
-            //                         reads++;                  //increment read counter
-            //                     }
-            //                     insert_block(new_block);    //insert block into cache
-            //                     //remove tag from stream buffer
-            //                     sb.tags.erase(tag_it);      //remove tag from stream buffer
-            //                     if(sb.tags.empty()){        //if stream buffer is empty
-            //                         sb.valid = false;        //set valid bit to false
-            //                     }
-            //                     return;                     //break out of loop
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
+            //check for hit in stream buffer 
+            
+
+            /*
+            Need to make sure that I am considering the following scenarios:
+            Scenario 1: Misses in cache and stream buffer (handle miss as usual updating both the cache and the stream buffer)
+            Scenario 2: misses in cache and hits in buffer (allocate block in cache using tag from stream buffer then update stream buffer)
+            Scenario 3: hits in cache and misses in stream buffer(nothing to do here except adjust necessary counters)
+            Scenario 4: hits in cache and hits in stream buffer (only update stream buffer and counters)
+            */
+            
             //check for hit in stream buffer done
 
             //if miss in cache and stream buffer(do not create new block, only replace existing block)
-            if(!hit && !stream_hit){
-                auto it = set_list[index].end();    //iterator to end of set list
+            if(!cache_hit && !stream_hit){
+                it = set_list[index].end();    //iterator to end of set list
                 it--;                               //move iterator to last block in set(list is not empty since miss occurred)
-                if(next_level != nullptr){          //if there is a next level of cache
-                    next_level->request('r', addy); //send read request to next level of cache
-                }
-                //check if evicted block is dirty
+
+                 //check if evicted block is dirty
                 if(it->valid && it->dirty){        //if block is valid and dirty
                     write_backs++;                 //increment write back counter
                     if(next_level != nullptr){     //if there is a next level of cache
                         next_level->request('w', (it->tag << (index_bits + BO_bits)) | (index << (BO_bits))); //send write request to next level of cache
                     }
                     it->dirty = false;            //set dirty bit to false
+                }
+
+
+                if(next_level != nullptr){          //if there is a next level of cache
+                    next_level->request('r', addy); //send read request to next level of cache
                 }
                 //replace evicted block with new block
                 if(!it->valid){
@@ -162,7 +148,7 @@ class cache{
                 update_order(index, it);              //update LRU by moving block to front of list       
                 return;                          //break out of loop         
             }           
-            printf("Error: Reached end of request function without returning.\n");
+            return;
         }
 
         void update_order(int set, list<block>::iterator &b){               //function to set most recently used block to front of list
@@ -203,6 +189,7 @@ class cache{
         }
 
 };
+
 
 
 
