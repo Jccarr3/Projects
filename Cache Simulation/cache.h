@@ -112,6 +112,8 @@ class cache{
                 if(stream_hit){                         //if hit in stream buffer
                     break;                              //break out of loop
                 }
+                stream_tag_index = 0;                    //set back to zero for use in stream store for non-shifting method
+
             }
             //check for hit in stream buffer done
 
@@ -216,6 +218,7 @@ class cache{
         }
 
 };
+
 
 
 
