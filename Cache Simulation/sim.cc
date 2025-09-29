@@ -49,13 +49,13 @@ int main (int argc, char *argv[]) {
    cache* L2 = nullptr;
    cache* L1 = nullptr;
    if(params.L2_SIZE < 1){
-      L1 = new cache(params.L1_SIZE, params.L1_ASSOC, params.BLOCKSIZE, nullptr, params.PREF_N, params.PREF_M);
-      printf("no L2 cache\n");
+      L1 = new cache(params.L1_SIZE, params.L1_ASSOC, params.BLOCKSIZE, nullptr, 1, params.PREF_N, params.PREF_M);
+      //printf("no L2 cache\n");
    } 
    else {
-      L2 = new cache(params.L2_SIZE, params.L2_ASSOC, params.BLOCKSIZE, nullptr, params.PREF_N, params.PREF_M);
-      L1 = new cache(params.L1_SIZE, params.L1_ASSOC, params.BLOCKSIZE, L2);
-      printf("L2 cache instantiated\n");
+      L2 = new cache(params.L2_SIZE, params.L2_ASSOC, params.BLOCKSIZE, nullptr, 2, params.PREF_N, params.PREF_M);
+      L1 = new cache(params.L1_SIZE, params.L1_ASSOC, params.BLOCKSIZE, L2, 1);
+      //printf("L2 cache instantiated\n");
    }
 
 
@@ -98,6 +98,12 @@ int main (int argc, char *argv[]) {
       L1->request(rw, addr);
       ///////////////////////////////////////////////////////
     }
+    L1->print_contents();
+    if(params.L2_SIZE > 0){
+      L2->print_contents();
+    }
+    L1->print_streams();
+    printf("=====Measurements=====\n");
     L1->print_stats();
     L2->print_stats();
 
