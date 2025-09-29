@@ -1,1 +1,3 @@
-still need to implement writeback during eviction(handled in cache store function)
+finish stream store function
+Finish scenario 1: adding stream store function
+
