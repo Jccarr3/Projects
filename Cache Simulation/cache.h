@@ -126,7 +126,7 @@ class cache{
                 cache_store(rw, addy, index, index_bits, BO_bits); //call function to handle cache store
                  
                 //printf("jittle %d\n",it_s->addys.size());
-                stream_store(addy,it_s,it_s->addys.size(),stream_tag_index);
+                stream_store(addy,it_s,ss,stream_tag_index);
                 update_stream(it_s);
 
                 if(next_level != nullptr){          //if there is a next level of cache
@@ -149,7 +149,7 @@ class cache{
             if(!cache_hit && stream_hit){
                 cache_store(rw,addy, index, index_bits, BO_bits);
 
-                stream_store(addy,it_s,it_s->addys.size(), stream_tag_index);
+                stream_store(addy,it_s, ss, stream_tag_index);
                 update_stream(it_s);
 
                 if(rw == 'r'){                    //if read request
@@ -175,7 +175,7 @@ class cache{
                 return;
             }
             //Scenario 4: hits in cache and hits in stream buffer (only update stream buffer and counters)
-            stream_store(addy,it_s,it_s->addys.size(), stream_tag_index);
+            stream_store(addy,it_s,ss, stream_tag_index);
             update_stream(it_s);
 
             if(rw == 'r'){                    //if read request
