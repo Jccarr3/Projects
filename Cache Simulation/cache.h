@@ -65,7 +65,7 @@ class cache{
 
 
         void request(char rw, uint32_t addy){   //function that handles read/write requests
-            //printf("chec");
+            printf("boo");
             //important variables
             bool cache_hit = false;                          //flag to check if hit or miss
             bool stream_hit = false;                   //flag to check if hit in stream buffer
@@ -79,7 +79,10 @@ class cache{
             tag = addy >> (BO_bits + index_bits);    //get tag by shifting address right by block offset bits and index bits
             //calculate tag and index done
 
+            //variables for iterating through lists and vectors
             auto it = set_list[index].begin();    //iterator to beginning of set list
+            auto it_s = stream_buffers.begin(); //iterator to beginning of stream buffer list
+            uint32_t stream_tag_index;               //index of tag in stream buffer
 
             //check for hit in cache
             for(it = set_list[index].begin(); it != set_list[index].end(); ++it){          //for each block in the set
@@ -99,55 +102,45 @@ class cache{
             //check for hit in cache done
 
             //check for hit in stream buffer 
-            
-
-            /*
-            Need to make sure that I am considering the following scenarios:
-            Scenario 1: Misses in cache and stream buffer (handle miss as usual updating both the cache and the stream buffer)
-            Scenario 2: misses in cache and hits in buffer (allocate block in cache using tag from stream buffer then update stream buffer)
-            Scenario 3: hits in cache and misses in stream buffer(nothing to do here except adjust necessary counters)
-            Scenario 4: hits in cache and hits in stream buffer (only update stream buffer and counters)
-            */
-            
+            for(it_s = stream_buffers.begin(); it_s != stream_buffers.end(); ++it_s){ //for each stream buffer
+                for(stream_tag_index = 0; stream_tag_index < it_s->tags.size(); stream_tag_index++){               //for each tag in stream buffer
+                    if(it_s->tags[stream_tag_index] == tag){                        //if tag matches
+                        stream_hit = true;               //set hit flag to true
+                        break;                          //break out of loop
+                    }
+                }
+                if(stream_hit){                         //if hit in stream buffer
+                    break;                              //break out of loop
+                }
+            }
             //check for hit in stream buffer done
 
-            //if miss in cache and stream buffer(do not create new block, only replace existing block)
-            if(!cache_hit && !stream_hit){
-                it = set_list[index].end();    //iterator to end of set list
-                it--;                               //move iterator to last block in set(list is not empty since miss occurred)
-
-                 //check if evicted block is dirty
-                if(it->valid && it->dirty){        //if block is valid and dirty
-                    write_backs++;                 //increment write back counter
-                    if(next_level != nullptr){     //if there is a next level of cache
-                        next_level->request('w', (it->tag << (index_bits + BO_bits)) | (index << (BO_bits))); //send write request to next level of cache
-                    }
-                    it->dirty = false;            //set dirty bit to false
-                }
+            
+            //Need to make sure that I am considering the following scenarios:
+            //Scenario 1: Misses in cache and stream buffer (handle miss as usual updating both the cache and the stream buffer)
+            if(!cache_hit && !stream_hit){                 
+                cache_store(rw, addy, index, index_bits, BO_bits); //call function to handle cache store
 
 
-                if(next_level != nullptr){          //if there is a next level of cache
-                    next_level->request('r', addy); //send read request to next level of cache
-                }
-                //replace evicted block with new block
-                if(!it->valid){
-                    test_count++;
-                }
-                it->tag = tag;                   //set tag of block to new tag
-                it->valid = true;                //set valid bit to true
                 if(rw == 'r'){                    //if read request
                     reads++;                      //increment read counter
                     read_misses++;                 //increment read miss counter
-                    it->dirty = false;              //set dirty bit to false
                 }
                 else{                            //if write request
                     writes++;                     //increment write counter
                     write_misses++;                //increment write miss counter
-                    it->dirty = true;               //set dirty bit to true
+                return;                          //break out of loop   
                 }
-                update_order(index, it);              //update LRU by moving block to front of list       
-                return;                          //break out of loop         
-            }           
+            }
+
+            //Scenario 2: misses in cache and hits in buffer (allocate block in cache using tag from stream buffer then update stream buffer)
+            //Scenario 3: hits in cache and misses in stream buffer(nothing to do here except adjust necessary counters)
+            //Scenario 4: hits in cache and hits in stream buffer (only update stream buffer and counters)
+            
+            
+            //check for hit in stream buffer done
+
+            //if miss in cache and stream buffer(do not create new block, only replace existing block)     
             return;
         }
 
@@ -188,7 +181,42 @@ class cache{
 
         }
 
+        void cache_store(char rw, uint32_t addy, uint32_t in, uint32_t ib, uint32_t bo){   //function that handles read/write requests
+            auto it = set_list[in].begin();    //iterator to beginning of set list
+
+            it = set_list[in].end();    //iterator to end of set list
+                it--;                               //move iterator to last block in set(list is not empty since miss occurred)
+
+                 //check if evicted block is dirty
+                if(it->valid && it->dirty){        //if block is valid and dirty
+                    write_backs++;                 //increment write back counter
+                    if(next_level != nullptr){     //if there is a next level of cache
+                        next_level->request('w', (it->tag << (ib + bo)) | (in << (bo))); //send write request to next level of cache
+                    }
+                    it->dirty = false;            //set dirty bit to false
+                }
+
+
+                if(next_level != nullptr){          //if there is a next level of cache
+                    next_level->request('r', addy); //send read request to next level of cache
+                }
+                //replace evicted block with new block
+                if(!it->valid){
+                    test_count++;
+                }
+                it->tag = tag;                   //set tag of block to new tag
+                it->valid = true;                //set valid bit to true
+                if(rw == 'r'){                    //if read request
+                    it->dirty = false;              //set dirty bit to false
+                }
+                else{                            //if write request
+                    it->dirty = true;               //set dirty bit to true
+                }
+                update_order(index, it);              //update LRU by moving block to front of list   
+        }
+
 };
+
 
 
 
