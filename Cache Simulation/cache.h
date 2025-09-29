@@ -9,10 +9,10 @@ using namespace std;
 
 
 class cache{
-    uint32_t size, assoc, blocksize, sets, BO, tag, index;
+    uint32_t size, assoc, blocksize, sets, BO, tag, index, ss;
     int reads = 0, read_misses = 0, writes = 0, write_misses = 0, write_backs = 0, prefetches = 0;              //counters for statistics
     cache *next_level; //pointer to next level of cache
-    int test_count = 0;
+    int level;
 
 
     
@@ -41,13 +41,16 @@ class cache{
 
 
         //constructor for cache class, should have following configurable parameters(size, associability, blocksize))
-        cache(int bytes = 0, int associativity = 0 , int block = 0, cache *next = nullptr, int stream_count = 0, int stream_size = 0){
+        cache(int bytes = 0, int associativity = 0 , int block = 0, cache *next = nullptr, int l = 0, int stream_count = 0, int stream_size = 0){
             size = bytes;                           //total size of cache
             assoc = associativity;                  //number of blocks per set
             blocksize = block;                      //block size in bytes
+            BO = log2(blocksize);                   //number of block offset bits
             sets = (size/(blocksize*assoc));        //number of sets in cache
             next_level = next;                      //pointer to next level of cache
+            ss = stream_size;
 
+            level = l;
             //adjust set_list according to number of sets
             set_list.resize(sets);
             for(int i = 0; i < sets; i++){              //for each set create a list
@@ -58,6 +61,7 @@ class cache{
             stream_buffers.resize(stream_count);            //resize stream buffer to number of stream buffers
             for(auto &s : stream_buffers){                //for each stream buffer
                 s.addys.resize(stream_size);               //resize tags vector to stream size
+                printf("%d",s.addys.size());
                 
             }
         }
@@ -65,7 +69,7 @@ class cache{
 
 
         void request(char rw, uint32_t addy){   //function that handles read/write requests
-            printf("goku");
+            //printf("cuh");
             //important variables
             bool cache_hit = false;                          //flag to check if hit or miss
             bool stream_hit = false;                   //flag to check if hit in stream buffer
@@ -82,30 +86,24 @@ class cache{
             //variables for iterating through lists and vectors
             auto it = set_list[index].begin();    //iterator to beginning of set list
             auto it_s = stream_buffers.begin(); //iterator to beginning of stream buffer list
-            uint32_t stream_tag_index;               //index of tag in stream buffer
+            uint32_t stream_tag_index = 0;               //index of tag in stream buffer
 
             //check for hit in cache
             for(it = set_list[index].begin(); it != set_list[index].end(); ++it){          //for each block in the set
                 if(it->valid && it->tag == tag){         //if block is valid and tags match
                     cache_hit = true;                       //set hit flag to true
-                    if(rw == 'r'){                    //if read request
-                        reads++;                      //increment read counter
-                    }
-                    else{                            //if write request
-                        writes++;                     //increment write counter
-                        it->dirty = true;               //set dirty bit to true
-                    }
-                    //update LRU
-                    update_order(index, it);                  //update LRU by moving block to front of list
+                    break;
                 }
             }
             //check for hit in cache done
 
             //check for hit in stream buffer 
-            for(it_s = stream_buffers.begin(); it_s != stream_buffers.end(); ++it_s){ //for each stream buffer
+            for(it_s = stream_buffers.begin(); it_s != stream_buffers.end(); it_s++){ //for each stream buffer
+                //printf("checking stream\n");
+                //printf("%d\n", it_s->addys.size());
                 if(it_s->valid){
                     for(stream_tag_index = 0; stream_tag_index < it_s->addys.size(); stream_tag_index++){               //for each tag in stream buffer
-                        if(it_s->addys[stream_tag_index] == tag){                        //if tag matches
+                        if(it_s->addys[stream_tag_index] << (index_bits + BO) == tag){                        //if tag matches
                             stream_hit = true;               //set hit flag to true
                             break;                          //break out of loop
                         }
@@ -115,6 +113,10 @@ class cache{
                     break;                              //break out of loop
                 }
             }
+            if(!stream_hit){
+                it_s--;             
+            }
+
             //check for hit in stream buffer done
 
             
@@ -122,7 +124,14 @@ class cache{
             //Scenario 1: Misses in cache and stream buffer (handle miss as usual updating both the cache and the stream buffer)
             if(!cache_hit && !stream_hit){                 
                 cache_store(rw, addy, index, index_bits, BO_bits); //call function to handle cache store
+                 
+                //printf("jittle %d\n",it_s->addys.size());
+                stream_store(addy,it_s,it_s->addys.size(),stream_tag_index);
+                update_stream(it_s);
 
+                if(next_level != nullptr){          //if there is a next level of cache
+                    next_level->request('r', addy); //send read request to next level of cache
+                }
 
                 if(rw == 'r'){                    //if read request
                     reads++;                      //increment read counter
@@ -131,18 +140,51 @@ class cache{
                 else{                            //if write request
                     writes++;                     //increment write counter
                     write_misses++;                //increment write miss counter
-                return;                          //break out of loop   
                 }
+                return;                          //break out of loop   
+
             }
 
-            //Scenario 2: misses in cache and hits in buffer (allocate block in cache using tag from stream buffer then update stream buffer)
-            //Scenario 3: hits in cache and misses in stream buffer(nothing to do here except adjust necessary counters)
-            //Scenario 4: hits in cache and hits in stream buffer (only update stream buffer and counters)
-            
-            
-            //check for hit in stream buffer done
+            //Scenario 2: misses in cache and hits in buffer (allocate block in cache using addy from stream buffer then update stream buffer)
+            if(!cache_hit && stream_hit){
+                cache_store(rw,addy, index, index_bits, BO_bits);
 
-            //if miss in cache and stream buffer(do not create new block, only replace existing block)     
+                stream_store(addy,it_s,it_s->addys.size(), stream_tag_index);
+                update_stream(it_s);
+
+                if(rw == 'r'){                    //if read request
+                    reads++;                      //increment read counter
+                }
+                else{                            //if write request
+                    writes++;                     //increment write counter
+                }
+                prefetches++;
+                return;
+            }
+            //Scenario 3: hits in cache and misses in stream buffer(nothing to do here except adjust necessary counters)
+            if(cache_hit && !stream_hit){
+                if(rw == 'r'){                    //if read request
+                    reads++;                      //increment read counter
+                }
+                else{                            //if write request
+                    writes++;                     //increment write counter
+                    it->dirty = true;               //set dirty bit to true
+                }
+                //update LRU
+                update_order(index, it);                  //update LRU by moving block to front of list
+                return;
+            }
+            //Scenario 4: hits in cache and hits in stream buffer (only update stream buffer and counters)
+            stream_store(addy,it_s,it_s->addys.size(), stream_tag_index);
+            update_stream(it_s);
+
+            if(rw == 'r'){                    //if read request
+                reads++;                      //increment read counter
+            }
+            else{                            //if write request
+                writes++;                     //increment write counter
+            }
+
             return;
         }
 
@@ -152,35 +194,11 @@ class cache{
             }
         }
 
-        void print_stats(){    //function to print cache statistics
-            printf("===== cache contents =====\n");
-            for(int i = 0; i < sets; i++){              //for each set
-                printf("Set %d: ", i);                  //print set number
-                for(auto &b : set_list[i]){             //for each block in set
-                    if(b.valid){                         //if block is valid
-                        printf(" %x", b.tag);           //print tag of block
-                        if(b.dirty){                     //if block is dirty
-                            printf(" D");                 //print D for dirty
-                        }
-                        else{                           //if block is not dirty
-                            printf("  ");                  //print space for clean block
-                        }
-                    }
-                    else{                               //if block is not valid
-                        printf(" *");                   //print * for invalid block
-                    }
-                }
-                printf("\n");                          //new line after each set
+        void update_stream(list<stream>::iterator &b){
+            if(stream_buffers.size() == 0) return;
+            if(b != stream_buffers.begin()){
+                stream_buffers.splice(stream_buffers.begin(), stream_buffers, b);
             }
-
-            printf("reads: %d\n", reads);                       //print number of reads
-            printf("read misses: %d\n", read_misses);           //print number of read misses
-            printf("writes: %d\n", writes);                     //print number of writes
-            printf("write misses: %d\n", write_misses);         //print number of write misses
-            printf("write backs: %d\n", write_backs);           //print number of write backs
-            printf("Memory traffic: %d\n", read_misses + write_misses + write_backs); //print total memory traffic
-            printf("test count: %d\n", test_count);
-
         }
 
         void cache_store(char rw, uint32_t addy, uint32_t in, uint32_t ib, uint32_t bo){   //function that handles read/write requests
@@ -199,13 +217,10 @@ class cache{
                 }
 
 
-                if(next_level != nullptr){          //if there is a next level of cache
-                    next_level->request('r', addy); //send read request to next level of cache
-                }
+                // if(next_level != nullptr){          //if there is a next level of cache
+                //     next_level->request('r', addy); //send read request to next level of cache
+                // }
                 //replace evicted block with new block
-                if(!it->valid){
-                    test_count++;
-                }
                 it->tag = tag;                   //set tag of block to new tag
                 it->valid = true;                //set valid bit to true
                 if(rw == 'r'){                    //if read request
@@ -217,14 +232,75 @@ class cache{
                 update_order(index, it);              //update LRU by moving block to front of list   
         }
 
-        void stream_store(uint32_t addy){}         //need address to be stored, which stream to store it in, which index in stream to update until
-};
+        void stream_store(uint32_t addy, list<stream>::iterator &x, uint32_t size, uint32_t stop){//need address to be stored, which stream to store it in, which index in stream to update until
+            if(stream_buffers.size() == 0) return;
+            x->valid = true;
+            //printf("inside stream store: %d\n",stop);
+            //printf("%d,", ss);
+            for(int i = 0; i < (stop + 1); i++){
+               // printf("hello");
+                x->addys[i] = (addy >> BO) + (ss - stop + 1) + i;      //non-shifting circular logic
+                prefetches++;
+                //printf("%d\n",x->addys[i]);
+            }
+            //printf("bout to leave");
+            return;
+        }         //need address to be stored, which stream to store it in, which index in stream to update until
 
+        void print_stats(){    //function to print cache statistics    
+            double mr;     
+            printf("L%d reads: %d\n", level, reads);                       //print number of reads
+            printf("L%d read misses: %d\n", level, read_misses);           //print number of read misses
+            printf("L%d writes: %d\n", level, writes);                     //print number of writes
+            printf("L%d write misses: %d\n", level, write_misses);         //print number of write misses
+            if(level == 1){
+                mr = ((double)read_misses + (double)write_misses) / ((double)reads + (double)writes);
+            }
+            else{
+                mr = ((double)read_misses) / ((double)reads);
+            }
+            printf("L%d miss rate: %f\n", level, mr);
+            printf("L%d write backs: %d\n",level, write_backs);           //print number of write backs
+            printf("L%d prefetches: %d\n", level, prefetches);
+            if(next_level == nullptr){
+                printf("Memory traffic: %d\n", read_misses + write_misses + write_backs); //print total memory traffic
+            }
+            return;
+        }
 
+        void print_contents(){
+            printf("===== L%d cache contents =====\n",level);
+            for(int i = 0; i < sets; i++){              //for each set
+                printf("Set %d: ", i);                  //print set number
+                for(auto &b : set_list[i]){             //for each block in set
+                    if(b.valid){                         //if block is valid
+                        printf(" %x", b.tag);           //print tag of block
+                        if(b.dirty){                     //if block is dirty
+                            printf(" D");                 //print D for dirty
+                        }
+                        else{                           //if block is not dirty
+                            printf("  ");                  //print space for clean block
+                        }
+                    }
+                    else{                               //if block is not valid
+                        printf(" *");                   //print * for invalid block
+                    }
+                }
+                printf("\n");                          //new line after each set
+            }
+            return;
+        }
 
-
-
-
-
-
-
+        void print_streams(){
+            printf("===== Stream Buffer contents =====\n",level);
+            for(auto it_s = stream_buffers.begin(); it_s != stream_buffers.end(); it_s++){
+                if(it_s->valid){
+                    for(int i = 0; i < ss; i++){
+                        printf("%x  ", it_s->addys[i]);
+                    }
+                }
+                printf("\n");
+            }
+            return;
+        }
+    };
