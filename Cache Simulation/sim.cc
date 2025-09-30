@@ -104,11 +104,11 @@ int main (int argc, char *argv[]) {
          L2->print_contents();
       }
       if((L1->next_level == nullptr) && (params.PREF_M > 0)){
-         printf("\n=====Stream Buffer(s) Contents\n");
+         printf("\n=====Stream Buffer(s) Contents=====\n");
          L1->print_streams();
       }
       else if(params.PREF_M > 0){
-         printf("\n=====Stream Buffer(s) Contents\n");
+         printf("\n=====Stream Buffer(s) Contents=====\n");
          L2->print_streams();
       }
 
