@@ -10,6 +10,7 @@ using namespace std;
 
 class cache{
     public:
+    int test = 0;
     uint32_t size, assoc, blocksize, sets, BO, tag, index, ss;
     int reads = 0, read_misses = 0, writes = 0, write_misses = 0, write_backs = 0, prefetches = 0;              //counters for statistics
     cache *next_level; //pointer to next level of cache
@@ -109,7 +110,7 @@ class cache{
             //printf("checking stream\n");
             //printf("%d\n", it_s->addys.size());
             if(it_s->valid){
-                for(stream_tag_index = 0; stream_tag_index < it_s->addys.size(); stream_tag_index++){               //for each tag in stream buffer
+                for(stream_tag_index = 0; stream_tag_index < ss; stream_tag_index++){               //for each tag in stream buffer
                     //printf("checking stream");
                     if(it_s->addys[stream_tag_index] == (addy >> BO)){                        //if tag matches
                         //printf("we hittington");
@@ -252,18 +253,37 @@ class cache{
         x->valid = true;
         
         if(!stream_hit){
+            head = 0;
+            test++;
             for(uint32_t i = 0; i < ss; i++){
             x->addys[i] = (addy >> BO) + 1 + i;
             prefetches++;
+            }
+            if(test < 100){
+                printf("%x \n",addy >> BO);
+
+                for(uint32_t i = 0; i < ss; i++){
+                    printf("%x  ", x->addys[(head + i) % ss]);
+                }
+                printf("\n");
             }
             return;
         }
         head = stop + 1;
         //use (size - head index) to find value that we need to increment from (i.e. head at index 2, size 4, then when we start storing at beginning then we need to store addresses starting from (hit_address +  stop))
-        for(int i = 0; i < head; i++){
-            x->addys[i] = (addy >> BO) + (size - stop) + i;
-            prefetches++;
+        if(test < 100){
+            printf("stream hit");
+            for(int i = 0; i < head; i++){
+                x->addys[i] = (addy >> BO) + (size - stop) + i;
+                prefetches++;
+            }
+            printf("%x \n",addy >> BO);
+            for(uint32_t i = 0; i < ss; i++){
+                printf("%x  ", x->addys[(head + i) % ss]);
+            }
+            printf("\n");
         }
+
         return;
     }         //need address to be stored, which stream to store it in, which index in stream to update until
 
