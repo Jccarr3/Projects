@@ -98,19 +98,19 @@ int main (int argc, char *argv[]) {
       L1->request(rw, addr);
       ///////////////////////////////////////////////////////
     }
-    L1->print_contents();
-    if(params.L2_SIZE > 0){
-      L2->print_contents();
-    }
-    if(params.L2_SIZE > 0){
-      L2->print_streams();
-    }
-    else{
-      L1->print_streams();
-    }
-    printf("=====Measurements=====\n");
-    L1->print_stats();
-    L2->print_stats();
+   //  L1->print_contents();
+   //  if(params.L2_SIZE > 0){
+   //    L2->print_contents();
+   //  }
+   //  if(params.L2_SIZE > 0){
+   //    L2->print_streams();
+   //  }
+   //  else{
+   //    L1->print_streams();
+   //  }
+   //  printf("=====Measurements=====\n");
+   //  L1->print_stats();
+   //  L2->print_stats();
 
     return(0);
 }
