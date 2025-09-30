@@ -9,15 +9,21 @@ using namespace std;
 
 
 class cache{
-uint32_t size, assoc, blocksize, sets, BO, tag, index, ss;
-int reads = 0, read_misses = 0, writes = 0, write_misses = 0, write_backs = 0, prefetches = 0;              //counters for statistics
-cache *next_level; //pointer to next level of cache
-int level;
+    public:
+    uint32_t size, assoc, blocksize, sets, BO, tag, index, ss;
+    int reads = 0, read_misses = 0, writes = 0, write_misses = 0, write_backs = 0, prefetches = 0;              //counters for statistics
+    cache *next_level; //pointer to next level of cache
+    int level;
+    //important variables
+        bool cache_hit;                          //flag to check if hit or miss
+        bool stream_hit;                   //flag to check if hit in stream buffer
+        int head;
+    //important variables done
 
 
 
 
-public:
+
     //Block class to be used in vectors
     class block{
             public:
@@ -49,11 +55,13 @@ public:
         sets = (size/(blocksize*assoc));        //number of sets in cache
         next_level = next;                      //pointer to next level of cache
         ss = stream_size;
+        
+
 
         level = l;
         //adjust set_list according to number of sets
         set_list.resize(sets);
-        for(int i = 0; i < sets; i++){              //for each set create a list
+        for(uint32_t i = 0; i < sets; i++){              //for each set create a list
             set_list[i].resize(assoc);              //resize list to associativity               
         }
 
@@ -70,10 +78,6 @@ public:
 
     void request(char rw, uint32_t addy){   //function that handles read/write requests
         //printf("cuh");
-        //important variables
-        bool cache_hit = false;                          //flag to check if hit or miss
-        bool stream_hit = false;                   //flag to check if hit in stream buffer
-        //important variables done
 
         //calculate index and tag
         int BO_bits = log2(blocksize);                    //number of block offset bits
@@ -82,6 +86,9 @@ public:
         index = ((addy >> BO_bits) & mask);       //get index by shifting address right by block offset bits and masking
         tag = addy >> (BO_bits + index_bits);    //get tag by shifting address right by block offset bits and index bits
         //calculate tag and index done
+
+        cache_hit = false;
+        stream_hit = false;
 
         //variables for iterating through lists and vectors
         auto it = set_list[index].begin();    //iterator to beginning of set list
@@ -161,7 +168,7 @@ public:
             else{                            //if write request
                 writes++;                     //increment write counter
             }
-            prefetches++;
+                
             return;
         }
         //Scenario 3: hits in cache and misses in stream buffer(nothing to do here except adjust necessary counters)
@@ -178,20 +185,23 @@ public:
             return;
         }
         //Scenario 4: hits in cache and hits in stream buffer (only update stream buffer and counters)
-        stream_store(addy,it_s,ss, stream_tag_index);
-        //printf("both hit");
-        update_order(index,it);
-        update_stream(it_s);
+        if(cache_hit && stream_hit){
+            stream_store(addy,it_s,ss, stream_tag_index);
+            //printf("both hit");
+            update_order(index,it);
+            update_stream(it_s);
 
-        if(rw == 'r'){                    //if read request
-            reads++;                      //increment read counter
-        }
-        else{                            //if write request
-            writes++;                     //increment write counter
-        }
+            if(rw == 'r'){                    //if read request
+                reads++;                      //increment read counter
+            }
+            else{                            //if write request
+                writes++;                     //increment write counter
+            }
 
-        return;
+            return;
+        }
     }
+    
 
     void update_order(int set, list<block>::iterator &b){               //function to set most recently used block to front of list
         if(b != set_list[set].begin())  {            //if block is not already at front of list
@@ -240,11 +250,9 @@ public:
     void stream_store(uint32_t addy, list<stream>::iterator &x, uint32_t size, uint32_t stop){//need address to be stored, which stream to store it in, which index in stream to update until
         if(stream_buffers.size() == 0) return;
         x->valid = true;
-
-        int head;
         
-        if(stop == 4){
-            for(int i = 0; i < ss; i++){
+        if(!stream_hit){
+            for(uint32_t i = 0; i < ss; i++){
             x->addys[i] = (addy >> BO) + 1 + i;
             prefetches++;
             }
@@ -256,48 +264,56 @@ public:
             x->addys[i] = (addy >> BO) + (size - stop) + i;
             prefetches++;
         }
-
-
-        // x->valid = true;
-        // //printf("inside stream store: %d\n",stop);
-        // //printf("%d,", ss);
-        // for(int i = 0; i < (stop + 1); i++){
-        //     // printf("hello");
-        //     x->addys[i] = (addy >> BO) + (size - stop) + i;      //non-shifting circular logic
-        //     prefetches++;
-        //     //printf("%d\n",x->addys[i]);
-        // }
-        //printf("bout to leave");
-        printf("%x",addy >> BO);
-        print_streams();
         return;
     }         //need address to be stored, which stream to store it in, which index in stream to update until
 
     void print_stats(){    //function to print cache statistics    
         double mr;     
-        printf("L%d reads: %d\n", level, reads);                       //print number of reads
-        printf("L%d read misses: %d\n", level, read_misses);           //print number of read misses
-        printf("L%d writes: %d\n", level, writes);                     //print number of writes
-        printf("L%d write misses: %d\n", level, write_misses);         //print number of write misses
         if(level == 1){
-            mr = ((double)read_misses + (double)write_misses) / ((double)reads + (double)writes);
+            printf("a. L%d reads:                    %d\n", level, reads);                       //print number of reads
+            printf("b. L%d read misses:              %d\n", level, read_misses);           //print number of read misses
+            printf("c. L%d writes:                   %d\n", level, writes);                     //print number of writes
+            printf("d. L%d write misses:             %d\n", level, write_misses);         //print number of write misses
+            if(level == 1){
+                mr = ((double)read_misses + (double)write_misses) / ((double)reads + (double)writes);
+            }
+            else{
+                mr = ((double)read_misses) / ((double)reads);
+            }
+            printf("e. L%d miss rate:               %4f\n", level, mr);
+            printf("f. L%d write backs:              %d\n",level, write_backs);           //print number of write backs
+            printf("g. L%d prefetches:               %d\n", level, prefetches);
         }
         else{
-            mr = ((double)read_misses) / ((double)reads);
+            printf("h. L%d reads (demand):                    %d\n", level, reads);                       //print number of reads
+            printf("i. L%d read misses (demand):              %d\n", level, read_misses);           //print number of read misses
+            printf("j. L%d reads (prefetch):                   %d\n", level, 0);                     //print number of writes
+            printf("k. L%d read misses (prefetch):             %d\n", level, 0);         //print number of write misses
+            printf("j. L%d writes (prefetch):                   %d\n", level, writes);                     //print number of writes
+            printf("k. L%d write misses (prefetch):             %d\n", level, write_misses);         //print number of write misses
+            if(level == 1){
+                mr = ((double)read_misses + (double)write_misses) / ((double)reads + (double)writes);
+            }
+            else{
+                mr = ((double)read_misses) / ((double)reads);
+            }
+            printf("l. L%d miss rate:                %f\n", level, mr);
+            printf("m. L%d write backs:              %d\n",level, write_backs);           //print number of write backs
+            printf("n. L%d prefetches:               %d\n", level, prefetches);
         }
-        printf("L%d miss rate: %f\n", level, mr);
-        printf("L%d write backs: %d\n",level, write_backs);           //print number of write backs
-        printf("L%d prefetches: %d\n", level, prefetches);
+
+
+
         if(next_level == nullptr){
-            printf("Memory traffic: %d\n", read_misses + write_misses + write_backs); //print total memory traffic
-        }
+                printf("q. Memory traffic:              %d\n", read_misses + write_misses + write_backs); //print total memory traffic
+            }
         return;
     }
 
     void print_contents(){
-        printf("===== L%d cache contents =====\n",level);
-        for(int i = 0; i < sets; i++){              //for each set
-            printf("Set %d: ", i);                  //print set number
+        printf("===== L%d contents =====\n",level);
+        for(uint32_t i = 0; i < sets; i++){              //for each set
+            printf("Set %d:  ", i);                  //print set number
             for(auto &b : set_list[i]){             //for each block in set
                 if(b.valid){                         //if block is valid
                     printf(" %x", b.tag);           //print tag of block
@@ -318,11 +334,10 @@ public:
     }
 
     void print_streams(){
-        printf("===== Stream Buffer contents =====\n",level);
         for(auto it_s = stream_buffers.begin(); it_s != stream_buffers.end(); it_s++){
             if(it_s->valid){
-                for(int i = 0; i < ss; i++){
-                    printf("%x  ", it_s->addys[i]);
+                for(uint32_t i = 0; i < ss; i++){
+                    printf("%x  ", it_s->addys[(head + i) % ss]);
                 }
             }
             printf("\n");
