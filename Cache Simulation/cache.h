@@ -196,6 +196,7 @@ class cache{
                 reads++;                      //increment read counter
             }
             else{                            //if write request
+                set_list[index].begin()->dirty = true;
                 writes++;                     //increment write counter
             }
 
@@ -259,29 +260,29 @@ class cache{
             x->addys[i] = (addy >> BO) + 1 + i;
             prefetches++;
             }
-            if(test < 100){
-                printf("%x \n",addy >> BO);
+            // if(test < 100){
+            //     printf("%x \n",addy >> BO);
 
-                for(uint32_t i = 0; i < ss; i++){
-                    printf("%x  ", x->addys[(head + i) % ss]);
-                }
-                printf("\n");
-            }
+            //     for(uint32_t i = 0; i < ss; i++){
+            //         printf("%x  ", x->addys[(head + i) % ss]);
+            //     }
+            //     printf("\n");
+            // }
             return;
         }
         head = stop + 1;
         //use (size - head index) to find value that we need to increment from (i.e. head at index 2, size 4, then when we start storing at beginning then we need to store addresses starting from (hit_address +  stop))
         if(test < 100){
-            printf("stream hit");
+            //printf("stream hit");
             for(int i = 0; i < head; i++){
                 x->addys[i] = (addy >> BO) + (size - stop) + i;
                 prefetches++;
             }
-            printf("%x \n",addy >> BO);
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
+            // printf("%x \n",addy >> BO);
+            // for(uint32_t i = 0; i < ss; i++){
+            //     printf("%x  ", x->addys[(head + i) % ss]);
+            // }
+            //printf("\n");
         }
 
         return;
