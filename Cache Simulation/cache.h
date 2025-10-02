@@ -274,17 +274,17 @@ class cache{
                 x->addys[(head + i) % ss] = (addy >> BO) + i + 1;
             }
             //head = 0;                                 
-            if(test < 50){
-            printf("stream miss");
+        //     if(test < 50){
+        //     printf("stream miss");
 
 
-            printf("%x \n",addy >> BO);
+        //     printf("%x \n",addy >> BO);
 
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
-        }
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
             return;
         }
 
@@ -301,28 +301,28 @@ class cache{
             }
             head = (stop + 1) % ss;                                 //set new head to the index after hit index
 
-            if(test < 50 && !stream_hit){
-            printf("stream miss");
+        //     if(test < 50 && !stream_hit){
+        //     printf("stream miss");
 
 
-            printf("%x \n",addy >> BO);
+        //     printf("%x \n",addy >> BO);
 
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
-        }
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
 
-        else if(test < 50 && stream_hit){
-            printf("stream hit");
+        // else if(test < 50 && stream_hit){
+        //     printf("stream hit");
 
-            printf("%x \n",addy >> BO);
+        //     printf("%x \n",addy >> BO);
 
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
-        }
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
 
 
 
@@ -340,27 +340,27 @@ class cache{
             }
             head = (stop + 1) % ss;                                 //set new head to the index after hit index
 
-            if(test < 50 && !stream_hit){
-            printf("stream miss");
+        //     if(test < 50 && !stream_hit){
+        //     printf("stream miss");
 
-            printf("%x \n",addy >> BO);
+        //     printf("%x \n",addy >> BO);
 
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
-        }
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
 
-        else if(test < 50 && stream_hit){
-            printf("stream hit");
+        // else if(test < 50 && stream_hit){
+        //     printf("stream hit");
 
-            printf("%x \n",addy >> BO);
+        //     printf("%x \n",addy >> BO);
 
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
-        }
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
 
 
             return;
@@ -377,27 +377,27 @@ class cache{
         prefetches++;
         head = (stop + 1) % ss;                                 //set new head to the index after hit index
 
-        if(test < 50 && !stream_hit){
-            printf("stream miss");
+        // if(test < 50 && !stream_hit){
+        //     printf("stream miss");
 
-            printf("%x \n",addy >> BO);
+        //     printf("%x \n",addy >> BO);
 
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
-        }
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
 
-        else if(test < 50 && stream_hit){
-            printf("stream hit");
+        // else if(test < 50 && stream_hit){
+        //     printf("stream hit");
 
-            printf("%x \n",addy >> BO);
+        //     printf("%x \n",addy >> BO);
 
-            for(uint32_t i = 0; i < ss; i++){
-                printf("%x  ", x->addys[(head + i) % ss]);
-            }
-            printf("\n");
-        }
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
 
        
 
