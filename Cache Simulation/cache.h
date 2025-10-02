@@ -252,65 +252,154 @@ class cache{
     void stream_store(uint32_t addy, list<stream>::iterator &x, uint32_t size, uint32_t stop){//need address to be stored, which stream to store it in, which index in stream to update until
         if(stream_buffers.size() == 0) return;
         x->valid = true;
+        test++;
+
+        // if(test < 100){
+        //     printf("\n");
+        //     for(uint32_t i = 0; i < ss; i++){
+        //         printf("%x  ", x->addys[(head + i) % ss]);
+        //     }
+        //     printf("\n");
+        // }
+
         //in stream buffer we will update from the head(previous hit index) to the stop(hit index)
         //The new head will be the index one after the hit index
         //The value that will take the new heads place will be the (address stored in (head-1)) + 1
 
         //three main cases to watch
         //case 0: head < stop
-        if(head < stop){
-            for(int i = 0; i < stop; i++){                  //increment through vector starting at the head and moving to the hit index
-                prefetches++;
-                if(head == 0){
-                    x->addys[(head + i) % ss] = x->addys[ss - 1] + 1 + i;             //replace vector value
-                }
-                else{
-                    x->addys[(head + i) % ss] = x->addys[head - 1] + 1 + i;             //replace vector value
-                }
-            }
-            head = (stop + 1) % ss;                                 //set new head to the index after hit index
-            return;
-        }
-
-        //case 1: head > stop
-        
-
-        //case 2: head == stop
-
-
         if(!stream_hit){
-            prefetches += ss;
-            head = 0;
-            test++;
-            for(uint32_t i = 0; i < ss; i++){
-                x->addys[i] = (addy >> BO) + 1 + i;
+            for(int i = 0; i < ss; i++){
+                prefetches++;
+                x->addys[(head + i) % ss] = (addy >> BO) + i + 1;
             }
-            if(test < 100){
-                printf("stream miss");
+            //head = 0;                                 
+            if(test < 50){
+            printf("stream miss");
 
-                printf("%x \n",addy >> BO);
 
-                for(uint32_t i = 0; i < ss; i++){
-                    printf("%x  ", x->addys[(head + i) % ss]);
-                }
-                printf("\n");
-            }
-            return;
-        }
-        head = stop + 1;
-        prefetches += head;
-        //use (size - head index) to find value that we need to increment from (i.e. head at index 2, size 4, then when we start storing at beginning then we need to store addresses starting from (hit_address +  stop))
-        for(int i = 0; i < head; i++){
-            x->addys[i] = (addy >> BO) + (size - stop) + i;
-        }
-        if(test < 100){
-            printf("stream hit");
             printf("%x \n",addy >> BO);
+
             for(uint32_t i = 0; i < ss; i++){
                 printf("%x  ", x->addys[(head + i) % ss]);
             }
             printf("\n");
         }
+            return;
+        }
+
+
+        if(head < stop){
+            for(int i = 0; i < stop - head + 1; i++){                  //increment through vector starting at the head and moving to the hit index
+                prefetches++;
+                if(head == 0){
+                    x->addys[(head + i) % ss] = (x->addys[ss - 1]) + 1 + i;             //replace vector value
+                }
+                else{
+                    x->addys[(head + i) % ss] = (x->addys[head - 1]) + 1 + i;             //replace vector value
+                }
+            }
+            head = (stop + 1) % ss;                                 //set new head to the index after hit index
+
+            if(test < 50 && !stream_hit){
+            printf("stream miss");
+
+
+            printf("%x \n",addy >> BO);
+
+            for(uint32_t i = 0; i < ss; i++){
+                printf("%x  ", x->addys[(head + i) % ss]);
+            }
+            printf("\n");
+        }
+
+        else if(test < 50 && stream_hit){
+            printf("stream hit");
+
+            printf("%x \n",addy >> BO);
+
+            for(uint32_t i = 0; i < ss; i++){
+                printf("%x  ", x->addys[(head + i) % ss]);
+            }
+            printf("\n");
+        }
+
+
+
+            return;
+        }
+
+        //case 1: head > stop
+        if(head > stop){
+            for(int i = 0; i < ss; i++){
+                prefetches++;
+                x->addys[(head + i) % ss] = (x->addys[head - 1]) + 1 + i;
+                if((head + i) % ss == stop){
+                    break;
+                }
+            }
+            head = (stop + 1) % ss;                                 //set new head to the index after hit index
+
+            if(test < 50 && !stream_hit){
+            printf("stream miss");
+
+            printf("%x \n",addy >> BO);
+
+            for(uint32_t i = 0; i < ss; i++){
+                printf("%x  ", x->addys[(head + i) % ss]);
+            }
+            printf("\n");
+        }
+
+        else if(test < 50 && stream_hit){
+            printf("stream hit");
+
+            printf("%x \n",addy >> BO);
+
+            for(uint32_t i = 0; i < ss; i++){
+                printf("%x  ", x->addys[(head + i) % ss]);
+            }
+            printf("\n");
+        }
+
+
+            return;
+        }
+
+
+        //case 2: head == stop
+        if(head == 0){
+            x->addys[head] = (x->addys[ss - 1]) + 1;
+        }
+        else{
+            x->addys[head] = (x->addys[head-1]) + 1;
+        }
+        prefetches++;
+        head = (stop + 1) % ss;                                 //set new head to the index after hit index
+
+        if(test < 50 && !stream_hit){
+            printf("stream miss");
+
+            printf("%x \n",addy >> BO);
+
+            for(uint32_t i = 0; i < ss; i++){
+                printf("%x  ", x->addys[(head + i) % ss]);
+            }
+            printf("\n");
+        }
+
+        else if(test < 50 && stream_hit){
+            printf("stream hit");
+
+            printf("%x \n",addy >> BO);
+
+            for(uint32_t i = 0; i < ss; i++){
+                printf("%x  ", x->addys[(head + i) % ss]);
+            }
+            printf("\n");
+        }
+
+       
 
         return;
     }         //need address to be stored, which stream to store it in, which index in stream to update until

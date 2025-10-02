@@ -95,6 +95,7 @@ int main (int argc, char *argv[]) {
 
       ///////////////////////////////////////////////////////
       // Issue the request to the L1 cache instance here.
+      
       L1->request(rw, addr);
       ///////////////////////////////////////////////////////
    }
